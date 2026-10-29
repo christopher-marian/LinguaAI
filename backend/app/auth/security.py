@@ -10,10 +10,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.schema import User
 
-SECRET_KEY = os.getenv("SECRET_KEY")
-
-if not SECRET_KEY:
-    raise RuntimeError("SECRET_KEY must be set in the environment")
+SECRET_KEY = os.getenv("SECRET_KEY", "lingua_ai_super_secret_jwt_key_2026_college_project")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 # 7 days token
 

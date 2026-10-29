@@ -53,7 +53,19 @@ def run_tests():
     })
     assert res.status_code == 200
     assert "translated_text" in res.json()
-    print(f"  [PASS] Translation OK: '{res.json()['translated_text']}'")
+    print(f"  [PASS] Translation (EN -> ES) OK: '{res.json()['translated_text']}'")
+
+    # Test other target languages (French, German, Japanese, Hindi)
+    for test_target in ["French", "German", "Japanese", "Hindi", "Tamil"]:
+        res_other = client.post("/api/translate", headers=headers, json={
+            "source_language": "English",
+            "target_language": test_target,
+            "text": "Good morning"
+        })
+        assert res_other.status_code == 200
+        trans = res_other.json()["translated_text"]
+        assert len(trans.strip()) > 0
+        print(f"  [PASS] Translation (EN -> {test_target}) OK: '{trans}'")
 
     res = client.get("/api/translation/history", headers=headers)
     assert res.status_code == 200
@@ -83,6 +95,25 @@ def run_tests():
     assert len(vocab_items) > 0
     v_id = vocab_items[0]["id"]
     print(f"  [PASS] Vocabulary list OK ({len(vocab_items)} items)")
+
+    # Test filtering by specific languages
+    for lang in ["Spanish", "French", "German", "Japanese", "Hindi"]:
+        lang_res = client.get(f"/api/vocabulary?language={lang}", headers=headers)
+        assert lang_res.status_code == 200
+        words_in_lang = lang_res.json()
+        assert len(words_in_lang) > 0, f"Expected words for {lang}"
+        print(f"  [PASS] Vocabulary language filter ({lang}) OK: {len(words_in_lang)} items")
+
+    # Test AI Vocabulary Generation
+    ai_gen_res = client.post("/api/vocabulary/ai-generate", headers=headers, json={
+        "topic": "Travel",
+        "language": "French",
+        "count": 3
+    })
+    assert ai_gen_res.status_code == 200
+    gen_items = ai_gen_res.json()
+    assert len(gen_items) >= 3
+    print(f"  [PASS] AI Vocabulary generation OK ({len(gen_items)} items created)")
 
     res = client.post(f"/api/vocabulary/{v_id}/review", headers=headers, json={"rating": "Good"})
     assert res.status_code == 200

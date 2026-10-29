@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { AudioPlayer } from '../components/AudioPlayer';
 import { Headphones, CheckCircle, HelpCircle, Award } from 'lucide-react';
 
 export const ListeningPracticePage: React.FC = () => {
+  const { user } = useAuth();
   const [exercises, setExercises] = useState<any[]>([]);
   const [selectedEx, setSelectedEx] = useState<any>(null);
   const [answers, setAnswers] = useState<Record<number, string>>({});
@@ -98,7 +100,7 @@ export const ListeningPracticePage: React.FC = () => {
                   </div>
 
                   {/* Speech Player */}
-                  <AudioPlayer text={selectedEx.target_sentence} lang="es-ES" />
+                  <AudioPlayer text={selectedEx.target_sentence} lang={selectedEx.language || user?.learning_language || 'es-ES'} />
                 </div>
 
                 {/* Comprehension Quiz */}

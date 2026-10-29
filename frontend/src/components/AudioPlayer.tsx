@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Play, Pause, RotateCcw, Volume2 } from 'lucide-react';
+import { getLanguageLocale } from '../utils/languages';
 
 interface AudioPlayerProps {
   text: string;
   lang?: string;
 }
 
-export const AudioPlayer: React.FC<AudioPlayerProps> = ({ text, lang = 'es-ES' }) => {
+export const AudioPlayer: React.FC<AudioPlayerProps> = ({ text, lang = 'en-US' }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [rate, setRate] = useState<number>(1.0);
 
@@ -26,7 +27,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ text, lang = 'es-ES' }
 
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = lang;
+    utterance.lang = getLanguageLocale(lang);
     utterance.rate = rate;
 
     utterance.onend = () => setIsPlaying(false);
