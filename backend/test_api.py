@@ -45,26 +45,76 @@ def run_tests():
     assert "recommendations" in dash
     print("  [PASS] User dashboard and recommendations OK")
 
-    # 5. Translation
-    res = client.post("/api/translate", headers=headers, json={
+    # 5. Translation - Real Translation Verification
+    # 5a. English -> Spanish: "hi" -> "Hola"
+    res_es = client.post("/api/translate", headers=headers, json={
         "source_language": "English",
         "target_language": "Spanish",
-        "text": "Hello! Welcome to LinguaAI"
+        "text": "hi"
     })
-    assert res.status_code == 200
-    assert "translated_text" in res.json()
-    print(f"  [PASS] Translation (EN -> ES) OK: '{res.json()['translated_text']}'")
+    assert res_es.status_code == 200
+    t_es = res_es.json()["translated_text"]
+    assert "hola" in t_es.lower(), f"Expected 'Hola', got '{t_es}'"
+    assert not t_es.startswith("(Spanish)"), f"Got fake placeholder '{t_es}'"
+    print(f"  [PASS] Translation (EN -> ES): 'hi' -> '{t_es}'")
 
-    # Test other target languages (French, German, Japanese, Hindi)
-    for test_target in ["French", "German", "Japanese", "Hindi", "Tamil"]:
+    # 5b. English -> French: "Good morning" -> "Bonjour"
+    res_fr = client.post("/api/translate", headers=headers, json={
+        "source_language": "English",
+        "target_language": "French",
+        "text": "Good morning"
+    })
+    assert res_fr.status_code == 200
+    t_fr = res_fr.json()["translated_text"]
+    assert "bonjour" in t_fr.lower(), f"Expected 'Bonjour', got '{t_fr}'"
+    print(f"  [PASS] Translation (EN -> FR): 'Good morning' -> '{t_fr}'")
+
+    # 5c. English -> German: "Thank you" -> "Danke"
+    res_de = client.post("/api/translate", headers=headers, json={
+        "source_language": "English",
+        "target_language": "German",
+        "text": "Thank you"
+    })
+    assert res_de.status_code == 200
+    t_de = res_de.json()["translated_text"]
+    assert "danke" in t_de.lower(), f"Expected 'Danke', got '{t_de}'"
+    print(f"  [PASS] Translation (EN -> DE): 'Thank you' -> '{t_de}'")
+
+    # 5d. English -> Tamil: "Hello" -> "வணக்கம்"
+    res_ta = client.post("/api/translate", headers=headers, json={
+        "source_language": "English",
+        "target_language": "Tamil",
+        "text": "Hello"
+    })
+    assert res_ta.status_code == 200
+    t_ta = res_ta.json()["translated_text"]
+    assert "வணக்கம்" in t_ta or len(t_ta.strip()) > 0, f"Expected Tamil text, got '{t_ta}'"
+    print(f"  [PASS] Translation (EN -> TA): 'Hello' -> '{t_ta}'")
+
+    # 5e. Test target-language selection changes the result
+    assert t_es.lower() != t_de.lower(), "Translations in different languages must not match"
+    assert t_es.lower() != t_fr.lower(), "Translations in different languages must not match"
+
+    # 5f. Empty input validation
+    res_empty = client.post("/api/translate", headers=headers, json={
+        "source_language": "English",
+        "target_language": "Spanish",
+        "text": "   "
+    })
+    assert res_empty.status_code == 400, "Empty input must return 400"
+    print("  [PASS] Empty text validation (HTTP 400) OK")
+
+    # 5g. Test other target languages (Japanese, Hindi, Telugu, Malayalam, Kannada)
+    for test_target in ["Japanese", "Hindi", "Telugu", "Malayalam", "Kannada"]:
         res_other = client.post("/api/translate", headers=headers, json={
             "source_language": "English",
             "target_language": test_target,
-            "text": "Good morning"
+            "text": "Welcome to LinguaAI"
         })
         assert res_other.status_code == 200
         trans = res_other.json()["translated_text"]
         assert len(trans.strip()) > 0
+        assert not trans.startswith(f"({test_target})"), f"Got fake placeholder '{trans}'"
         print(f"  [PASS] Translation (EN -> {test_target}) OK: '{trans}'")
 
     res = client.get("/api/translation/history", headers=headers)

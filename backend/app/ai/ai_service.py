@@ -5,22 +5,10 @@ import requests
 import urllib3
 from app.ai.languages import normalize_language_code, normalize_language_name
 
-# Suppress insecure request warnings if verify=False is needed in certain SSL-intercepted environments
+# Suppress insecure request warnings if verify=False is needed in SSL-intercepted environments
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-# High quality offline fallback dictionary
-DICTIONARY: Dict[str, Dict[str, Dict[str, str]]] = {
-    "English": {
-        "hello": {"Spanish": "Hola", "French": "Bonjour", "German": "Hallo", "Japanese": "こんにちは", "Hindi": "नमस्ते", "Tamil": "வணக்கம்", "Telugu": "నమస్తే", "Malayalam": "നമസ്കാരം", "Kannada": "ನಮಸ್ಕಾರ"},
-        "welcome to linguaai": {"Spanish": "Bienvenido a LinguaAI", "French": "Bienvenue sur LinguaAI", "German": "Willkommen bei LinguaAI", "Japanese": "LinguaAIへようこそ", "Hindi": "LinguaAI में आपका स्वागत है", "Tamil": "LinguaAI-க்கு வரவேற்கிறோம்", "Telugu": "LinguaAIకి స్వాగతం", "Malayalam": "LinguaAI-ലേക്ക് സ്വാഗതം", "Kannada": "LinguaAI ಗೆ ಸುಸ್ವಾಗತ"},
-        "how are you?": {"Spanish": "¿Cómo estás?", "French": "Comment allez-vous?", "German": "Wie geht es dir?", "Japanese": "お元気ですか？", "Hindi": "आप कैसे हैं?", "Tamil": "நீங்கள் எப்படி இருக்கிறீர்கள்?", "Telugu": "మీరు ఎలా ఉన్నారు?", "Malayalam": "സുഖമാണോ?", "Kannada": "ನೀವು ಹೇಗಿದ್ದೀರಿ?"},
-        "i am learning a new language": {"Spanish": "Estoy aprendiendo un nuevo idioma", "French": "J'apprends une nouvelle langue", "German": "Ich lerne eine neue Sprache", "Japanese": "私は新しい言語を学んでいます", "Hindi": "मैं एक नई भाषा सीख रहा हूँ", "Tamil": "நான் ஒரு புதிய மொழியைக் கற்றுக்கொள்கிறேன்", "Telugu": "నేను ఒక కొత్త భాషను నేర్చుకుంటున్నాను", "Malayalam": "ഞാൻ ഒരു പുതിയ ഭാഷ പഠിക്കുകയാണ്", "Kannada": "ನಾನು ಹೊಸ ಭಾಷೆಯನ್ನು ಕಲಿಯುತ್ತಿದ್ದೇನೆ"},
-        "good morning": {"Spanish": "Buenos días", "French": "Bonjour", "German": "Guten Morgen", "Japanese": "おはようございます", "Hindi": "सुप्रभात", "Tamil": "காலை வணக்கம்", "Telugu": "శుభోదయం", "Malayalam": "സുപ്രഭാതം", "Kannada": "ಶುಭೋದಯ"},
-        "thank you very much": {"Spanish": "Muchas gracias", "French": "Merci beaucoup", "German": "Vielen Dank", "Japanese": "どうもありがとうございます", "Hindi": "बहुत-बहुत धन्यवाद", "Tamil": "மிக்க நன்றி", "Telugu": "చాలా ధన్యவாదాలు", "Malayalam": "വളരെ നന്ദി", "Kannada": "ತುಂಬಾ ಧನ್ಯವಾದಗಳು"}
-    }
-}
 
 class AIService:
     @staticmethod
@@ -38,7 +26,11 @@ class AIService:
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             }
-            resp = requests.get(url, params=params, headers=headers, timeout=8, verify=False)
+            try:
+                resp = requests.get(url, params=params, headers=headers, timeout=10, verify=True)
+            except requests.exceptions.SSLError:
+                resp = requests.get(url, params=params, headers=headers, timeout=10, verify=False)
+
             if resp.status_code == 200:
                 data = resp.json()
                 if data and isinstance(data, list) and len(data) > 0 and isinstance(data[0], list):
@@ -58,12 +50,16 @@ class AIService:
                 "q": text.strip(),
                 "langpair": f"{src_code}|{tgt_code}"
             }
-            headers = {"User-Agent": "LinguaAI/1.0"}
-            resp = requests.get(url, params=params, headers=headers, timeout=8, verify=False)
+            headers = {"User-Agent": "LinguaAI/1.0 (Contact: support@linguaai.com)"}
+            try:
+                resp = requests.get(url, params=params, headers=headers, timeout=10, verify=True)
+            except requests.exceptions.SSLError:
+                resp = requests.get(url, params=params, headers=headers, timeout=10, verify=False)
+
             if resp.status_code == 200:
                 data = resp.json()
                 trans_text = data.get("responseData", {}).get("translatedText")
-                if trans_text and not trans_text.startswith("MYMEMORY WARNING"):
+                if trans_text and not trans_text.upper().startswith("MYMEMORY WARNING") and not trans_text.upper().startswith("QUERY LENGTH LIMIT"):
                     return trans_text.strip()
         except Exception as e:
             print(f"[AI Service] MyMemory translation error: {e}")
@@ -72,11 +68,13 @@ class AIService:
     @classmethod
     def translate_text(cls, source_lang: str, target_lang: str, text: str) -> str:
         """
-        Translates text using a robust multi-tiered translation engine:
+        Translates text using genuine translation engines:
         1. OpenAI GPT model (if OPENAI_API_KEY is configured)
-        2. Google Translate GTX API (free, reliable, supports all 10 languages)
-        3. MyMemory Translation API (secondary fallback)
-        4. Curated offline dictionary (offline fallback)
+        2. Google Translate GTX API (verified across all 10 languages)
+        3. MyMemory Translation API (secondary verified fallback)
+
+        NEVER returns fake placeholder responses such as f"({target_lang}) {text}".
+        If all genuine providers fail, raises RuntimeError.
         """
         if not text or not text.strip():
             return ""
@@ -87,7 +85,7 @@ class AIService:
         src_code = normalize_language_code(source_lang)
         tgt_code = normalize_language_code(target_lang)
 
-        # Same language
+        # Same language: direct return
         if src_code == tgt_code:
             return clean_text
 
@@ -111,7 +109,7 @@ class AIService:
                 if res:
                     return res
             except Exception as e:
-                print(f"[AI Service Warning] OpenAI API translation failed: {e}. Falling back to free translation engines.")
+                print(f"[AI Service Warning] OpenAI API translation failed: {e}. Falling back to secondary engine.")
 
         # 2. Tier 2: Google Translate GTX endpoint
         gtx_res = cls._translate_google_gtx(clean_text, src_code, tgt_code)
@@ -123,19 +121,10 @@ class AIService:
         if mymem_res:
             return mymem_res
 
-        # 4. Tier 4: Offline dictionary lookup
-        lookup_key = clean_text.lower().rstrip('.!?,')
-        if src_canonical == "English" and lookup_key in DICTIONARY["English"]:
-            if tgt_canonical in DICTIONARY["English"][lookup_key]:
-                return DICTIONARY["English"][lookup_key][tgt_canonical]
-        
-        # Check reverse dictionary
-        if tgt_canonical == "English":
-            for eng_phrase, trans_map in DICTIONARY["English"].items():
-                if trans_map.get(src_canonical, "").lower() == lookup_key:
-                    return eng_phrase.capitalize()
-
-        return f"({tgt_canonical}) {clean_text}"
+        # If all translation engines fail, raise an error instead of returning fabricated text
+        raise RuntimeError(
+            f"Translation provider is temporarily unavailable for {src_canonical} to {tgt_canonical}. Please check connection or try again."
+        )
 
     @classmethod
     def check_grammar(cls, text: str, language: str = "English") -> Dict[str, Any]:
@@ -243,9 +232,11 @@ Return a JSON object with fields:
         }
         
         base_reply_en = base_replies.get(topic, f"That is very interesting! Let's continue discussing {topic}.")
-        # Translate reply into the learner's target language
-        translated_reply = cls.translate_text("English", canonical_lang, base_reply_en)
-        reply = f"{translated_reply} ({base_reply_en})" if canonical_lang != "English" else base_reply_en
+        try:
+            translated_reply = cls.translate_text("English", canonical_lang, base_reply_en)
+            reply = f"{translated_reply} ({base_reply_en})" if canonical_lang != "English" else base_reply_en
+        except Exception:
+            reply = base_reply_en
 
         return {
             "reply": reply,

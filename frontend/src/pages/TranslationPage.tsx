@@ -62,6 +62,7 @@ export const TranslationPage: React.FC = () => {
 
     setLoading(true);
     setErrorMessage(null);
+    setTranslatedText('');
 
     try {
       const res = await api.post('/api/translate', {
@@ -69,12 +70,18 @@ export const TranslationPage: React.FC = () => {
         target_language: targetLang,
         text: inputText.trim()
       });
-      setTranslatedText(res.data.translated_text || '');
-      fetchHistory();
+      const result = res.data?.translated_text;
+      if (result && result.trim()) {
+        setTranslatedText(result.trim());
+        fetchHistory();
+      } else {
+        setErrorMessage('Received empty response from translation service.');
+      }
     } catch (err: any) {
       console.error('Translation error:', err);
       const msg = err.response?.data?.detail || 'Translation service is temporarily unavailable. Please try again.';
       setErrorMessage(msg);
+      setTranslatedText('');
     } finally {
       setLoading(false);
     }

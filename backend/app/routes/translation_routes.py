@@ -19,14 +19,22 @@ def translate_text(req: TranslationRequest, current_user: User = Depends(get_cur
 
     try:
         translated = AIService.translate_text(req.source_language, req.target_language, req.text)
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"[Translation Route Error] {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Translation service encountered an error. Please try again."
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Translation failed: Could not translate from {req.source_language} to {req.target_language}. Service temporarily unavailable."
         )
 
-    # Save to translation history
+    if not translated or not translated.strip():
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Translation provider returned an empty response. Please try again."
+        )
+
+    # Save to translation history ONLY upon genuine successful translation
     try:
         history_entry = TranslationHistory(
             user_id=current_user.id,
@@ -36,6 +44,7 @@ def translate_text(req: TranslationRequest, current_user: User = Depends(get_cur
             translated_text=translated
         )
         db.add(history_entry)
+        db.commit()
 
         # Award XP for translation practice (+5 XP)
         LearningService.add_user_xp(current_user, 5, db)
